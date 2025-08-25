@@ -1,0 +1,162 @@
+[project]
+name = "cascam"
+version = "0.1.0"
+description = "Cascaded Class Activation Mapping for Enhanced Model Interpretability"
+authors = [
+    {name = "Research Team", email = "research@example.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+keywords = ["machine-learning", "computer-vision", "interpretability", "xai", "cam"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+dependencies = [
+    # Core deep learning
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "fastai>=2.7.0",
+    
+    # CAM implementations
+    "grad-cam>=1.4.0",
+    
+    # Scientific computing & visualization
+    "numpy>=1.21.0",
+    "matplotlib>=3.5.0",
+    
+    # Configuration & utilities
+    "pyyaml>=6.0.0",
+    "pillow>=8.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "flake8>=4.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=2.20.0",
+]
+
+gpu = [
+    "torch[cuda]>=2.0.0",
+    "torchvision[cuda]>=0.15.0",
+]
+
+jupyter = [
+    "jupyter>=1.0.0",
+    "jupyterlab>=3.4.0",
+    "ipywidgets>=8.0.0",
+]
+
+[project.scripts]
+cascam = "run:main"
+
+[project.urls]
+Homepage = "https://github.com/example/cascam"
+Repository = "https://github.com/example/cascam"
+Issues = "https://github.com/example/cascam/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+exclude = [
+    "data/",
+    "figs/", 
+    "__pycache__/",
+    "*.pyc",
+    ".ipynb_checkpoints/",
+    "uv.lock"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "flake8>=4.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=2.20.0",
+    "jupyter>=1.0.0",
+    "jupyterlab>=3.4.0",
+    "ipywidgets>=8.0.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # Directories to exclude
+  \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | data
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_glob = ["data/*", "*.ipynb"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+exclude = [
+    "data/",
+    "figs/",
+    "*.ipynb"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=. --cov-report=term-missing --cov-report=html"
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
