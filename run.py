@@ -15,18 +15,21 @@ Example:
 
 import argparse
 import sys
-from core import CasCAMConfig, CasCAMAnalyzer
+from config import CasCAMConfig
+from analyzer import CasCAMAnalyzer
 
 
 def create_default_config():
     """Create default CasCAM configuration"""
     return CasCAMConfig(
         num_iter=3,
-        theta=0.1,
-        lambda_vals=[0.369],
-        data_path="./data/pet/",
+        theta=0.3,
+        lambda_vals=[0.1],
+        data_path="./data/pet_randombox/",
         random_seed=43052,
-        max_comparison_images=None
+        max_comparison_images=None,
+        threshold_method='top_k',
+        threshold_params={'k': 10}
     )
 
 
@@ -48,11 +51,17 @@ def main():
     """Main execution function"""
     parser = argparse.ArgumentParser(description='Run CasCAM Analysis')
     parser.add_argument('--config', type=str, help='Path to custom configuration file')
-    parser.add_argument('--num_iter', type=int, help='Override number of iterations')
-    parser.add_argument('--theta', type=float, help='Override theta parameter')
-    parser.add_argument('--lambda_vals', type=float, nargs='+', help='Override lambda parameters (single or multiple values)')
-    parser.add_argument('--data_path', type=str, help='Override original data path')
-    parser.add_argument('--max_comparison_images', type=int, help='Maximum number of images for comparison (default: all)')
+    parser.add_argument('--num_iter', type=int, default=3, help='Number of iterations (default: 3)')
+    parser.add_argument('--theta', type=float, default=0.3, help='Theta parameter (default: 0.3)')
+    parser.add_argument('--lambda_vals', type=float, nargs='+', default=[0.1], help='Lambda values (default: [0.1])')
+    parser.add_argument('--data_path', type=str, default="./data/pet_randombox/", help='Data path (default: ./data/pet_randombox/)')
+    parser.add_argument('--random_seed', type=int, default=43052, help='Random seed (default: 43052)')
+    parser.add_argument('--max_comparison_images', type=int, default=None, help='Maximum number of images for comparison (default: all)')
+    parser.add_argument('--threshold_method', type=str, choices=['top_k', 'ebayesthresh'], default=None, help='CAM thresholding method (omit for no thresholding)')
+    parser.add_argument('--top_k', type=float, default=10, help='Top-k percentage for top_k method (default: 10)')
+    parser.add_argument('--ebayesthresh_method', type=str, choices=['sure', 'bayes'], default='sure', help='EBayesThresh method (default: sure)')
+    parser.add_argument('--ebayesthresh_prior', type=str, choices=['laplace', 'cauchy'], default='laplace', help='EBayesThresh prior (default: laplace)')
+    parser.add_argument('--ebayesthresh_a', type=float, default=0.5, help='EBayesThresh a parameter (default: 0.5)')
     
     args = parser.parse_args()
     
@@ -65,14 +74,27 @@ def main():
     # Handle lambda values
     lambda_values = args.lambda_vals if args.lambda_vals is not None else config.lambda_vals
     
+    # Setup threshold parameters
+    threshold_params = {}
+    if args.threshold_method == 'top_k':
+        threshold_params = {'k': args.top_k}
+    elif args.threshold_method == 'ebayesthresh':
+        threshold_params = {
+            'method': args.ebayesthresh_method,
+            'prior': args.ebayesthresh_prior,
+            'a': args.ebayesthresh_a
+        }
+    
     # Create single config with all lambda values
     final_config = CasCAMConfig(
-        num_iter=args.num_iter if args.num_iter is not None else config.num_iter,
-        theta=args.theta if args.theta is not None else config.theta,
+        num_iter=args.num_iter,
+        theta=args.theta,
         lambda_vals=lambda_values,
-        data_path=args.data_path if args.data_path is not None else config.data_path,
-        random_seed=config.random_seed,
-        max_comparison_images=args.max_comparison_images if args.max_comparison_images is not None else config.max_comparison_images
+        data_path=args.data_path,
+        random_seed=args.random_seed,
+        max_comparison_images=args.max_comparison_images,
+        threshold_method=args.threshold_method,
+        threshold_params=threshold_params
     )
     
     print(f"Running CasCAM: {final_config.dataset_name} | θ={final_config.theta} | λ={lambda_values} | {final_config.num_iter} iter")
