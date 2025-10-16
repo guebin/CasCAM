@@ -29,7 +29,8 @@ def create_default_config():
         random_seed=43052,
         max_comparison_images=None,
         threshold_method='top_k',
-        threshold_params={'k': 10}
+        threshold_params={'k': 10},
+        annotation_dir="./data/oxford_pets/annotations"
     )
 
 
@@ -62,7 +63,9 @@ def main():
     parser.add_argument('--ebayesthresh_method', type=str, choices=['sure', 'bayes'], default='sure', help='EBayesThresh method (default: sure)')
     parser.add_argument('--ebayesthresh_prior', type=str, choices=['laplace', 'cauchy'], default='laplace', help='EBayesThresh prior (default: laplace)')
     parser.add_argument('--ebayesthresh_a', type=float, default=0.5, help='EBayesThresh a parameter (default: 0.5)')
-    
+    parser.add_argument('--annotation_dir', type=str, default="./data/oxford_pets/annotations", help='Path to annotation directory for IoU evaluation')
+    parser.add_argument('--no_iou', action='store_true', help='Skip IoU evaluation')
+
     args = parser.parse_args()
     
     # Load configuration
@@ -94,7 +97,8 @@ def main():
         random_seed=args.random_seed,
         max_comparison_images=args.max_comparison_images,
         threshold_method=args.threshold_method,
-        threshold_params=threshold_params
+        threshold_params=threshold_params,
+        annotation_dir=args.annotation_dir
     )
     
     print(f"Running CasCAM: {final_config.dataset_name} | θ={final_config.theta} | λ={lambda_values} | {final_config.num_iter} iter")
@@ -103,13 +107,34 @@ def main():
         # Run analysis once for all lambda values
         analyzer = CasCAMAnalyzer(final_config)
         all_results = analyzer.run_full_analysis()
-        
+
         print(f"✓ Analysis complete: {len(lambda_values)} lambda values processed")
-        
+
+        # Save computation times
+        analyzer.save_computation_times()
+
+        # Run IoU evaluation if not disabled
+        if not args.no_iou:
+            try:
+                import os
+                if os.path.exists(final_config.annotation_dir):
+                    iou_results = analyzer.evaluate_iou(final_config.annotation_dir)
+                    print(f"\n✓ IoU evaluation complete")
+                else:
+                    print(f"\n⚠ Warning: Annotation directory not found at {final_config.annotation_dir}")
+                    print("  Skipping IoU evaluation. Use --no_iou to suppress this warning.")
+            except Exception as e:
+                print(f"\n✗ IoU evaluation error: {e}")
+                print("  Continuing without IoU evaluation...")
+        else:
+            print("\nSkipping IoU evaluation (--no_iou flag set)")
+
     except Exception as e:
         print(f"✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         all_results = {}
-    
+
     # Final summary
     if len(all_results) > 1:
         print(f"\nBatch complete: {len(all_results)} lambda values processed")

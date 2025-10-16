@@ -23,7 +23,8 @@ class CasCAMConfig:
                  random_seed=43052,
                  max_comparison_images=None,
                  threshold_method=None,
-                 threshold_params=None):
+                 threshold_params=None,
+                 annotation_dir="./data/oxford_pets/annotations"):
         self.theta = theta
         self.lambda_vals = lambda_vals if isinstance(lambda_vals, list) else [lambda_vals]
         self.num_iter = num_iter
@@ -32,15 +33,16 @@ class CasCAMConfig:
         self.max_comparison_images = max_comparison_images
         self.threshold_method = threshold_method
         self.threshold_params = threshold_params or {}
-        
+        self.annotation_dir = annotation_dir
+
         # Derived parameters
         self.dataset_name = self.data_path.strip("./").strip("/").split("/")[-1]
         self.run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.experiment_dir = f"./results/run_{self.run_id}"
-        
+
         # CAM methods for comparison
         self.methods = (
-            GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus, 
+            GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus,
             AblationCAM, XGradCAM, FullGrad, EigenGradCAM, LayerCAM
         )
     

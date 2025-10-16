@@ -209,7 +209,7 @@ class OtherCAMGenerator:
     """Class for generating other CAM methods (GradCAM, HiResCAM, etc.)"""
     
     @staticmethod
-    def get_img_and_allcams(dls, idx, model, methods, dataset='combined'):
+    def get_img_and_allcams(dls, idx, model, methods, dataset='combined', timing_dict=None):
         """Get image and all CAM variants (original + comparison methods)"""
         if dataset == 'combined':
             # Get from combined dataset (train + valid)
@@ -220,9 +220,9 @@ class OtherCAMGenerator:
             label = 0 if str(img_path).split('/')[-1][0].isupper() else 1  # Cat=0, Dog=1
         else:
             img, label = dls.train_ds[idx]
-            
+
         img_norm, = next(iter(dls.test_dl([img])))
-        
+
         # Generate original CAM
         original_cam = CAMGenerator.original_cam(model=model, input_tensor=img_norm, label=label)
 
@@ -230,31 +230,41 @@ class OtherCAMGenerator:
         allcams = []
 
         # Generate other CAM methods
+        import time
         for method in methods:
             try:
+                start_time = time.time()
                 other_cam = method(model=model, target_layers=[model[0][-1]])(input_tensor=img_norm, targets=None)
-                
+                elapsed_time = time.time() - start_time
+
+                # Store timing if dict provided
+                method_name = method.__name__ if hasattr(method, '__name__') else str(method)
+                if timing_dict is not None:
+                    if method_name not in timing_dict:
+                        timing_dict[method_name] = []
+                    timing_dict[method_name].append(elapsed_time)
+
                 # Debug: Check CAM values
                 cam_tensor = torch.tensor(other_cam)
-                print(f"\n=== {method.__name__ if hasattr(method, '__name__') else str(method)} ===")
+                print(f"\n=== {method_name} ===")
                 print(f"Shape: {cam_tensor.shape}")
                 print(f"Min: {cam_tensor.min().item():.6f}")
                 print(f"Max: {cam_tensor.max().item():.6f}")
                 print(f"Mean: {cam_tensor.mean().item():.6f}")
                 print(f"Std: {cam_tensor.std().item():.6f}")
                 print(f"Non-zero count: {(cam_tensor != 0).sum().item()}/{cam_tensor.numel()}")
-                
+
                 # Check for problematic values
                 if cam_tensor.max().item() - cam_tensor.min().item() < 1e-8:
-                    print(f"WARNING: {method.__name__ if hasattr(method, '__name__') else str(method)} has extremely low dynamic range!")
+                    print(f"WARNING: {method_name} has extremely low dynamic range!")
                 if torch.isnan(cam_tensor).any():
-                    print(f"WARNING: {method.__name__ if hasattr(method, '__name__') else str(method)} contains NaN values!")
+                    print(f"WARNING: {method_name} contains NaN values!")
                 if (cam_tensor == 0).all():
-                    print(f"WARNING: {method.__name__ if hasattr(method, '__name__') else str(method)} is all zeros!")
-                
+                    print(f"WARNING: {method_name} is all zeros!")
+
                 allcams.append(cam_tensor)
             except Exception as e:
                 print(f"Warning: Failed to generate {method}: {e}")
                 continue
-                
+
         return img, allcams

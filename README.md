@@ -16,9 +16,10 @@ The final CasCAM combines activation maps from multiple iterations using exponen
 ## Key Features
 
 - **9 CAM Methods**: Compares against GradCAM, HiResCAM, ScoreCAM, GradCAM++, AblationCAM, XGradCAM, FullGrad, EigenGradCAM, LayerCAM
+- **Automated Evaluation**: IoU metrics and computation time analysis
 - **Automated Pipeline**: End-to-end analysis with minimal configuration
 - **Configurable Parameters**: Adjustable theta (weighting strength), lambda (decay rate), and iteration count
-- **Ready-to-Use**: Pre-configured for cat/dog classification tasks
+- **Ready-to-Use**: Pre-configured for Oxford-IIIT Pet dataset
 
 ## Installation
 
@@ -67,6 +68,8 @@ conda activate cascam
 - `--threshold_method`: CAM thresholding method - `top_k` or `ebayesthresh` (omit for no thresholding)
 - `--max_comparison_images`: Maximum images for comparison (omit this option to process all images)
 - `--random_seed`: Random seed for reproducibility (default: 43052)
+- `--annotation_dir`: Path to annotation directory for IoU evaluation (default: "./data/oxford_pets/annotations")
+- `--no_iou`: Skip IoU evaluation (include this flag to disable)
 
 #### Threshold Method Parameters
 *These parameters depend on the selected `--threshold_method`*
@@ -176,6 +179,17 @@ The analysis generates:
 - **Comparison Figures**: PDF files comparing CasCAM with other CAM methods
 - **Training Metrics**: Consolidated JSON with training history
 - **Configuration**: YAML file with all experiment parameters
+- **IoU Evaluation**: Three CSV files with detailed IoU metrics
+  - `iou_detailed.csv`: Per-image IoU scores for each method
+  - `iou_summary.csv`: Mean, std, median, min, max IoU per method
+  - `iou_comparison.csv`: Comparison vs baseline (CAM) method
+- **Computation Time Analysis**:
+  - `computation_times.csv`: Total computation time for each method
+  - `timing_breakdown.json`: Detailed breakdown of CasCAM timing
+    - (1) Training time per iteration
+    - (2) Thresholding time
+    - (3) Preprocessing time (dataloader + image processing)
+    - (4) CAM generation time per method
 
 ## Performance Optimizations
 
