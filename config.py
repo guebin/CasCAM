@@ -19,12 +19,12 @@ class CasCAMConfig:
                  num_iter=3,
                  theta=0.3,
                  lambda_vals=[0.1],
-                 data_path="./data/oxford_pets/with_artifact/",
+                 data_path="./data/oxford-pets-cascam/with_artifact/",
                  random_seed=43052,
                  max_comparison_images=None,
                  threshold_method=None,
                  threshold_params=None,
-                 annotation_dir="./data/oxford_pets/annotations"):
+                 annotation_dir="./data/oxford-pets-cascam/annotations"):
         self.theta = theta
         self.lambda_vals = lambda_vals if isinstance(lambda_vals, list) else [lambda_vals]
         self.num_iter = num_iter

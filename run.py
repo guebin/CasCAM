@@ -25,12 +25,12 @@ def create_default_config():
         num_iter=3,
         theta=0.3,
         lambda_vals=[0.1],
-        data_path="./data/oxford_pets/with_artifact/",
+        data_path="./data/oxford-pets-cascam/with_artifact/",
         random_seed=43052,
         max_comparison_images=None,
         threshold_method='top_k',
         threshold_params={'k': 10},
-        annotation_dir="./data/oxford_pets/annotations"
+        annotation_dir="./data/oxford-pets-cascam/annotations"
     )
 
 
@@ -55,7 +55,7 @@ def main():
     parser.add_argument('--num_iter', type=int, default=3, help='Number of iterations (default: 3)')
     parser.add_argument('--theta', type=float, default=0.3, help='Theta parameter (default: 0.3)')
     parser.add_argument('--lambda_vals', type=float, nargs='+', default=[0.1], help='Lambda values (default: [0.1])')
-    parser.add_argument('--data_path', type=str, default="./data/oxford_pets/with_artifact/", help='Data path (default: ./data/oxford_pets/with_artifact/)')
+    parser.add_argument('--data_path', type=str, default="./data/oxford-pets-cascam/with_artifact/", help='Data path (default: ./data/oxford-pets-cascam/with_artifact/)')
     parser.add_argument('--random_seed', type=int, default=43052, help='Random seed (default: 43052)')
     parser.add_argument('--max_comparison_images', type=int, default=None, help='Maximum number of images for comparison (default: all)')
     parser.add_argument('--threshold_method', type=str, choices=['top_k', 'ebayesthresh'], default=None, help='CAM thresholding method (omit for no thresholding)')
@@ -63,7 +63,7 @@ def main():
     parser.add_argument('--ebayesthresh_method', type=str, choices=['sure', 'bayes'], default='sure', help='EBayesThresh method (default: sure)')
     parser.add_argument('--ebayesthresh_prior', type=str, choices=['laplace', 'cauchy'], default='laplace', help='EBayesThresh prior (default: laplace)')
     parser.add_argument('--ebayesthresh_a', type=float, default=0.5, help='EBayesThresh a parameter (default: 0.5)')
-    parser.add_argument('--annotation_dir', type=str, default="./data/oxford_pets/annotations", help='Path to annotation directory for IoU evaluation')
+    parser.add_argument('--annotation_dir', type=str, default="./data/oxford-pets-cascam/annotations", help='Path to annotation directory for IoU evaluation')
     parser.add_argument('--no_iou', action='store_true', help='Skip IoU evaluation')
 
     args = parser.parse_args()
