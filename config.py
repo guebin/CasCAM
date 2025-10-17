@@ -19,7 +19,7 @@ class CasCAMConfig:
                  num_iter=3,
                  theta=0.3,
                  lambda_vals=[0.1],
-                 data_path="./data/pet_randombox/",
+                 data_path="./data/oxford_pets/with_artifact/",
                  random_seed=43052,
                  max_comparison_images=None,
                  threshold_method=None,
@@ -77,13 +77,16 @@ class CasCAMConfig:
             'random_seed': self.random_seed,
             'max_comparison_images': self.max_comparison_images,
             'dataset_name': self.dataset_name,
-            'run_id': self.run_id
+            'run_id': self.run_id,
+            'threshold_method': self.threshold_method,
+            'threshold_params': self.threshold_params,
+            'annotation_dir': self.annotation_dir
         }
-        
+
         os.makedirs(self.experiment_dir, exist_ok=True)
         config_path = f"{self.experiment_dir}/config.yaml"
-        
+
         with open(config_path, 'w') as f:
             yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True, indent=2)
-        
+
         return config_path
