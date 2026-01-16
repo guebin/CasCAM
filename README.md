@@ -33,7 +33,7 @@ The final CasCAM combines activation maps from multiple iterations using exponen
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone <repository-url>
+git clone https://github.com/guebin/CasCAM.git
 cd CasCAM
 uv sync
 ```
@@ -41,7 +41,7 @@ uv sync
 ### Using pip
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/guebin/CasCAM.git
 cd CasCAM
 python -m venv cascam_env
 source cascam_env/bin/activate  # Windows: cascam_env\Scripts\activate
@@ -56,7 +56,7 @@ pip install -e .[dev]      # Development tools
 ### Using conda
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/guebin/CasCAM.git
 cd CasCAM
 conda env create -f environment.yml
 conda activate cascam
@@ -322,7 +322,7 @@ Analyzes the relationship between object and artifact activations.
   - (3) Preprocessing time (dataloader + image processing)
   - (4) CAM generation time per method
 
-For detailed information about all evaluation metrics, see [EVALUATION_METRICS.md](EVALUATION_METRICS.md).
+For detailed information about evaluation metrics, see the method documentation in `evaluator.py`.
 
 ## Performance Optimizations
 
@@ -337,14 +337,20 @@ For detailed information about all evaluation metrics, see [EVALUATION_METRICS.m
 
 *Equal contribution, †Corresponding author
 
+## Related Resources
+
+- **Interactive Results Visualization**: [https://guebin.github.io/cascam-results/](https://guebin.github.io/cascam-results/)
+- **MS-COCO Dataset (with artifacts)**: [https://github.com/guebin/coco-catdog-cascam](https://github.com/guebin/coco-catdog-cascam)
+- **Oxford-IIIT Pet Dataset (with artifacts)**: [https://github.com/guebin/oxford-pets-cascam](https://github.com/guebin/oxford-pets-cascam)
+
 ## Citation
 
 ```bibtex
-@misc{cascam2025,
-  title={CasCAM: Cascaded Class Activation Mapping for Enhanced Model Interpretability},
+@article{cascam2025,
+  title={Cascading Class Activation Mapping: A Counterfactual Reasoning-Based Explainable Method for Comprehensive Feature Discovery},
   author={Seoyeon Choi and Hayoung Kim and Guebin Choi},
+  journal={Computer Modeling in Engineering \& Sciences},
   year={2025},
-  note={Research implementation},
   institution={Jeonbuk National University, KT Corporation}
 }
 ```
