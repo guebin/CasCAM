@@ -67,35 +67,27 @@ conda activate cascam
 ### Command Line Parameters
 
 #### Core Parameters
-- `--num_iter`: Number of training iterations (default: 3)
-- `--theta`: Weighting parameter (default: 0.3)
-- `--lambda_vals`: Lambda values for combining iterations (default: [0.1])
+- `--num_iter`: Number of CasCAM iterations (default: 3)
+- `--theta`: Masking strength parameter (default: 0.3)
+- `--lambda_vals`: Lambda values for exponential decay weighting (default: [0.1])
 - `--data_path`: Path to dataset (default: "./data/oxford-pets-cascam/with_artifact/")
-- `--threshold_method`: CAM thresholding method - `top_k` or `ebayesthresh` (omit for no thresholding)
-- `--max_comparison_images`: Maximum images for comparison (omit this option to process all images)
 - `--random_seed`: Random seed for reproducibility (default: 43052)
+- `--max_comparison_images`: Limit number of images to process (default: all)
 
-#### Evaluation Parameters
-- `--annotation_dir`: Path to annotation directory for evaluation (default: "./data/oxford-pets-cascam/annotations")
-- `--artifact_masks_dir`: Path to artifact masks directory (optional, enables artifact analysis)
-- `--no_iou`: Skip all evaluation (training + CAM generation only)
-- `--no_advanced`: Skip advanced metrics evaluation (run basic IoU only)
-- `--eval_only_basic`: Run only basic IoU evaluation (faster, skip advanced metrics)
-
-#### Threshold Method Parameters
-*These parameters depend on the selected `--threshold_method`*
+#### Thresholding Parameters
+- `--threshold_method`: CAM thresholding method - `top_k` or `ebayesthresh` (omit for no thresholding)
 
 **When using `--threshold_method top_k`:**
-- `--top_k`: Percentage of top values to keep (default: 10)
+- `--top_k`: Percentage of top activation values to keep (default: 10)
 
 **When using `--threshold_method ebayesthresh`:**
 - `--ebayesthresh_method`: Algorithm - `sure` or `bayes` (default: sure)
-- `--ebayesthresh_prior`: Prior - `laplace` or `cauchy` (default: laplace)
+- `--ebayesthresh_prior`: Prior distribution - `laplace` or `cauchy` (default: laplace)
 - `--ebayesthresh_a`: Regularization parameter (default: 0.5)
 
-#### Training Parameters
-- `--patience`: Early stopping patience (default: 1)
-- `--max_epochs`: Maximum training epochs (default: 10)
+#### Evaluation Parameters
+- `--annotation_dir`: Path to trimap annotations for IoU evaluation (default: "./data/oxford-pets-cascam/annotations")
+- `--no_iou`: Skip IoU evaluation (training + CAM generation only)
 
 ### Basic Usage
 ```bash
@@ -104,87 +96,68 @@ python run.py
 
 ### Usage Examples
 
-**1. Full Evaluation with All Metrics (Recommended)**
+**1. Standard Run with Top-k Thresholding**
 ```bash
 python run.py \
-  --num_iter 3 \
-  --theta 0.3 \
-  --lambda_vals 0.1 \
-  --data_path "./data/oxford-pets-cascam/with_artifact/" \
-  --annotation_dir "./data/oxford-pets-cascam/annotations" \
-  --artifact_masks_dir "./data/oxford-pets-cascam/artifact_boxes/" \
-  --threshold_method top_k \
-  --top_k 10 \
-  --eval_use_topk \
-  --eval_k_percent 0.10
-```
-This runs:
-- Object Localization evaluation (vs GT annotations)
-- Artifact Detection evaluation (vs artifact masks)
-- **Cross-Analysis evaluation** (object-artifact relationship) - NEW!
-- Advanced metrics with all distribution statistics
-
-**2. Basic IoU Evaluation Only (Faster)**
-```bash
-python run.py \
-  --num_iter 3 \
-  --theta 0.3 \
-  --lambda_vals 0.1 \
-  --data_path "./data/oxford-pets-cascam/with_artifact/" \
-  --annotation_dir "./data/oxford-pets-cascam/annotations" \
-  --eval_only_basic
-```
-
-**3. Training + CAM Generation Only (No Evaluation)**
-```bash
-python run.py \
-  --num_iter 3 \
+  --num_iter 10 \
   --theta 0.3 \
   --lambda_vals 0.1 0.2 \
-  --data_path "./data/oxford-pets-cascam/with_artifact/" \
+  --threshold_method top_k \
+  --top_k 10
+```
+
+**2. Multiple Lambda Values**
+```bash
+python run.py \
+  --num_iter 5 \
+  --theta 0.3 \
+  --lambda_vals 0.1 0.2 0.3
+```
+
+**3. Training + CAM Generation Only (Skip Evaluation)**
+```bash
+python run.py \
+  --num_iter 3 \
+  --theta 0.3 \
+  --lambda_vals 0.1 \
   --no_iou
 ```
 
-**4. Multiple Lambda Values with Advanced Metrics**
+**4. EBayesThresh Thresholding**
 ```bash
 python run.py \
-  --num_iter 5 \
-  --theta 0.3 \
-  --lambda_vals 0.01 0.05 0.1 0.2 0.3 \
-  --data_path "./data/oxford-pets-cascam/with_artifact/" \
-  --annotation_dir "./data/oxford-pets-cascam/annotations" \
-  --artifact_masks_dir "./data/oxford-pets-cascam/artifact_boxes/"
-```
-
-**5. EBayesThresh Method with Evaluation**
-```bash
-python run.py \
-  --num_iter 5 \
-  --theta 0.3 \
+  --num_iter 10 \
+  --theta 0.1 \
   --lambda_vals 0.1 \
-  --data_path "./data/oxford-pets-cascam/with_artifact/" \
-  --annotation_dir "./data/oxford-pets-cascam/annotations" \
   --threshold_method ebayesthresh \
   --ebayesthresh_method sure \
   --ebayesthresh_prior laplace \
   --ebayesthresh_a 0.5
 ```
 
-### Custom Configuration
+**5. No Thresholding (Raw CAM)**
+```bash
+python run.py \
+  --num_iter 10 \
+  --theta 0.3 \
+  --lambda_vals 0.1
+```
 
-Create a custom configuration file:
+### Custom Configuration
 
 ```python
 # custom_config.py
-from core import CasCAMConfig
+from config import CasCAMConfig
 
 def get_config():
     return CasCAMConfig(
         num_iter=5,
-        theta=2.0,
-        lambda_vals=[0.3],
+        theta=0.3,
+        lambda_vals=[0.1, 0.2],
         data_path="./data/my_dataset/",
-        random_seed=12345
+        random_seed=12345,
+        threshold_method='top_k',
+        threshold_params={'k': 10}
     )
 ```
 
@@ -196,133 +169,53 @@ python run.py --config custom_config.py
 
 ```
 data/
-├── oxford-pets-cascam/
-│   ├── with_artifact/           # Training images (with artifacts)
-│   │   ├── Abyssinian_1.jpg     # Cat images (uppercase = cat)
-│   │   ├── beagle_1.jpg         # Dog images (lowercase = dog)
-│   │   └── ...
-│   ├── annotations/             # Ground truth annotations
-│   │   └── trimaps/
-│   │       ├── Abyssinian_1.png
-│   │       └── ...
-│   └── artifact_boxes/          # Artifact masks (optional)
-│       ├── Abyssinian_1_artifact.png
-│       └── ...
+└── oxford-pets-cascam/
+    ├── with_artifact/           # Training images (with artifacts)
+    │   ├── Abyssinian_1.jpg     # Cat images (uppercase = cat)
+    │   ├── beagle_1.jpg         # Dog images (lowercase = dog)
+    │   └── ...
+    └── annotations/             # Ground truth annotations
+        └── trimaps/
+            ├── Abyssinian_1.png
+            └── ...
+```
 
+## Output Structure
+
+```
 results/
-└── run_20251111_120000/         # Timestamp-based run ID
+└── run_YYYYMMDD_HHMMSS/         # Timestamp-based run ID
     ├── config.yaml              # Experiment configuration
     ├── training/
     │   ├── checkpoints/         # Model checkpoints per iteration
     │   │   ├── iter_1/
     │   │   ├── iter_2/
-    │   │   └── iter_3/
-    │   ├── removed1/            # First iteration processed images
-    │   ├── removed2/            # Second iteration processed images
-    │   └── removed3/            # Third iteration processed images
-    ├── cams/                    # Generated CAM files
-    │   ├── lambda_0.1/
-    │   │   ├── CasCAM_image1.npy
-    │   │   ├── GradCAM_image1.npy
     │   │   └── ...
-    │   └── lambda_0.2/
+    │   ├── removed1/            # Masked images after iteration 1
+    │   ├── removed2/            # Masked images after iteration 2
+    │   └── ...
+    ├── cams/                    # Generated CAM files
+    │   └── lambda_0.1/
+    │       ├── CasCAM_Abyssinian_108.npy
+    │       ├── GradCAM_Abyssinian_108.npy
     │       └── ...
     ├── timing/                  # Computation time statistics
     │   ├── computation_times.csv
-    │   └── timing_breakdown.json
-    └── evaluation/              # Evaluation results
-        ├── lambda_0.1/
-        └── lambda_0.2/
+    │   ├── timing_per_image_cam.csv
+    │   └── timing_per_iteration.csv
+    └── evaluation/
+        └── lambda_0.1/
+            └── comparison_figures/  # Side-by-side CAM visualizations
 ```
 
 ## Output
 
 The analysis generates:
-- **Model Checkpoints**: Trained models for each iteration
-- **Processed Images**: Weighted images for each iteration
-- **CAM Files**: Generated activation maps saved as .npy files
-- **Timing Information**: Computation time statistics and breakdowns
-- **Configuration**: YAML file with all experiment parameters
-
-### Evaluation Results Structure
-
-```
-evaluation/lambda_X/
-├── object_localization/              # Object finding performance (vs GT annotation)
-│   ├── detailed.csv                  # Per-image metrics (all 11 methods)
-│   ├── summary.csv                   # Statistical summary
-│   └── vs_baseline.csv               # Comparison vs CAM
-│
-├── artifact_detection/               # Artifact finding performance (vs artifact masks)
-│   ├── detailed.csv                  # Per-image metrics
-│   ├── summary.csv                   # Statistical summary
-│   └── vs_baseline.csv               # Comparison vs CAM
-│
-├── cross_analysis/                   # Object-Artifact relationship analysis
-│   ├── per_image.csv                 # Cross-metrics per image
-│   ├── summary.csv                   # Statistical summary
-│   └── vs_CAM.csv                    # Comparison vs baseline
-│
-├── detailed_results.csv              # Comprehensive metrics (all in one)
-├── summary_report.csv                # Overall summary report
-└── comparison_figures/               # Visualization PDFs
-```
-
-### Object Localization Evaluation
-Evaluates how well CAM methods locate the target object (e.g., cat/dog).
-- **Metrics**: IoU, Dice, Precision, Recall, F1, AP, AUC
-- **Localization**: Top-15% Precision, Pointing Game, Centroid Distance
-- **Boundary**: Boundary F1, Chamfer Distance, Hausdorff Distance
-- **Higher values = better object localization**
-
-### Artifact Detection Evaluation (if artifact masks provided)
-Evaluates how well CAM methods detect artifacts (watermarks, logos, text).
-- **Same metrics as object localization**
-- **Purpose**: Understand if model relies on artifacts for predictions
-- **Higher IoU = model found artifacts (shows dependency)**
-
-### Cross-Analysis Evaluation (NEW!)
-Analyzes the relationship between object and artifact activations.
-
-**Key Metrics**:
-- `artifact_fpr`: False positive rate in artifact regions (객체 찾으려다 아티팩트 오탐)
-  - **Lower is better** - indicates less confusion with artifacts
-
-- `clean_object_precision`: Object precision excluding artifact regions (아티팩트 제외 순수 객체 정확도)
-  - **Higher is better** - pure object detection accuracy
-
-- `artifact_contamination`: Ratio of artifact pixels in predictions (예측 중 아티팩트 비율)
-  - **Lower is better** - less artifact contamination
-
-- `object_purity`: Ratio of object pixels in meaningful activations (의미있는 활성화 중 객체 비율)
-  - **Higher is better** - cleaner object focus
-
-- `distraction_score`: Artifact IoU / Object IoU (객체 대비 아티팩트 현혹도)
-  - **Lower is better** - less distracted by artifacts
-
-- `dependency_ratio`: Artifact IoU / (Object IoU + Artifact IoU) (아티팩트 의존도)
-  - Shows model's reliance on artifacts for decision-making
-  - Interpretation: Higher = model uses artifacts more
-
-**Use Cases**:
-- Identify if model relies on spurious correlations (artifacts)
-- Compare robustness across different CAM methods
-- Validate that model focuses on true object features
-
-### Advanced Metrics Evaluation (when enabled)
-- `detailed_results.csv`: Per-image comprehensive metrics for all methods
-- `summary_report.csv`: Mean, std, median statistics for all metrics
-- All metrics from Object Localization + Distribution analysis
-
-### Computation Time Analysis
-- `computation_times.csv`: Total computation time for each method
-- `timing_breakdown.json`: Detailed breakdown of CasCAM timing
-  - (1) Training time per iteration
-  - (2) Thresholding time
-  - (3) Preprocessing time (dataloader + image processing)
-  - (4) CAM generation time per method
-
-For detailed information about evaluation metrics, see the method documentation in `evaluator.py`.
+- **Model Checkpoints**: Trained models for each iteration (`training/checkpoints/iter_K/`)
+- **Masked Images**: Images with high-activation regions suppressed (`training/removedK/`)
+- **CAM Files**: Activation maps as NumPy arrays (`cams/lambda_X/{Method}_{ImageName}.npy`)
+- **Timing Statistics**: Per-method and per-iteration computation times
+- **Comparison Figures**: Side-by-side visualizations of all CAM methods
 
 ## Performance Optimizations
 
