@@ -64,7 +64,9 @@ class CasCAMAnalyzer:
 
             # (1) Pure training time
             training_start = time.time()
-            training_logger = ModelTrainer.train_with_early_stopping(lrnr, max_epochs=10, patience=1)
+            training_logger = ModelTrainer.train_with_early_stopping(
+                lrnr, max_epochs=self.config.max_epochs, patience=self.config.patience
+            )
             training_time = time.time() - training_start
             self.cascam_timing_breakdown['training_times'].append(training_time)
             print(f"  [1] Pure training time (iter {k+1}): {training_time:.4f}s")
@@ -235,17 +237,18 @@ class CasCAMAnalyzer:
         # Calculate CasCAM weights
         weights = self.config.calculate_cascam_weights(lambda_val)
 
-        # Process all validation images for IoU calculation
+        # Process validation images
         total_dataset_size = len(dls.valid_ds)  # Validation only
-        total_images = total_dataset_size
 
-        # Determine how many comparison figures to save
+        # Limit images to process if max_comparison_images is set
         if self.config.max_comparison_images is None:
-            max_figures = total_dataset_size
-            print(f"Processing all {total_images} validation images (saving all comparison figures)")
+            total_images = total_dataset_size
+            print(f"Processing all {total_images} validation images")
         else:
-            max_figures = min(self.config.max_comparison_images, total_dataset_size)
-            print(f"Processing all {total_images} validation images (saving {max_figures} comparison figures)")
+            total_images = min(self.config.max_comparison_images, total_dataset_size)
+            print(f"Processing {total_images}/{total_dataset_size} validation images")
+
+        max_figures = total_images
 
         # Get all validation image items and names
         all_items = list(dls.valid_ds.items)  # Validation only
@@ -605,6 +608,33 @@ class CasCAMAnalyzer:
 
         return advanced_results
 
+    def save_cams(self):
+        """Save CAM numpy arrays to files for each lambda value and method"""
+        print("\n" + "="*60)
+        print("Saving CAM files")
+        print("="*60)
+
+        for lambda_val, methods_dict in self.saved_cams.items():
+            cams_dir = self.config.get_cams_dir(lambda_val)
+            os.makedirs(cams_dir, exist_ok=True)
+
+            saved_count = 0
+            for method_name, cams_list in methods_dict.items():
+                for idx, cam in enumerate(cams_list):
+                    if idx < len(self.image_names):
+                        img_name = self.image_names[idx]
+                        img_name_no_ext = img_name.rsplit('.', 1)[0]
+                        # Convert to numpy if tensor
+                        if hasattr(cam, 'cpu'):
+                            cam_np = cam.cpu().numpy()
+                        else:
+                            cam_np = np.array(cam)
+                        save_path = f"{cams_dir}/{method_name}_{img_name_no_ext}.npy"
+                        np.save(save_path, cam_np)
+                        saved_count += 1
+
+            print(f"  lambda={lambda_val}: Saved {saved_count} CAM files to {cams_dir}")
+
     def save_computation_times(self):
         """Save computation time statistics to CSV files with detailed breakdown"""
         import pandas as pd
@@ -715,6 +745,9 @@ class CasCAMAnalyzer:
                 'weights': weights,
                 'num_iterations': len(self.lrnr_list)
             }
+
+        # Save CAM files
+        self.save_cams()
 
         # Save configuration
         self.config.save_config()

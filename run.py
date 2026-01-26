@@ -64,6 +64,11 @@ def main():
     parser.add_argument('--ebayesthresh_prior', type=str, choices=['laplace', 'cauchy'], default='laplace', help='EBayesThresh prior (default: laplace)')
     parser.add_argument('--ebayesthresh_a', type=float, default=0.5, help='EBayesThresh a parameter (default: 0.5)')
     parser.add_argument('--annotation_dir', type=str, default="./data/oxford-pets-cascam/annotations", help='Path to annotation directory for IoU evaluation')
+    parser.add_argument('--artifact_masks_dir', type=str, default=None, help='Path to artifact masks directory')
+    parser.add_argument('--eval_use_topk', action='store_true', default=True, help='Use top-k for evaluation (default: True)')
+    parser.add_argument('--eval_k_percent', type=float, default=0.1, help='Top-k percentage for evaluation (default: 0.1)')
+    parser.add_argument('--max_epochs', type=int, default=10, help='Maximum training epochs (default: 10)')
+    parser.add_argument('--patience', type=int, default=5, help='Early stopping patience (default: 5)')
     parser.add_argument('--no_iou', action='store_true', help='Skip IoU evaluation')
 
     args = parser.parse_args()
@@ -98,7 +103,12 @@ def main():
         max_comparison_images=args.max_comparison_images,
         threshold_method=args.threshold_method,
         threshold_params=threshold_params,
-        annotation_dir=args.annotation_dir
+        annotation_dir=args.annotation_dir,
+        artifact_masks_dir=args.artifact_masks_dir,
+        eval_use_topk=args.eval_use_topk,
+        eval_k_percent=args.eval_k_percent,
+        max_epochs=args.max_epochs,
+        patience=args.patience
     )
     
     print(f"Running CasCAM: {final_config.dataset_name} | θ={final_config.theta} | λ={lambda_values} | {final_config.num_iter} iter")
@@ -118,7 +128,10 @@ def main():
             try:
                 import os
                 if os.path.exists(final_config.annotation_dir):
-                    iou_results = analyzer.evaluate_iou(final_config.annotation_dir)
+                    iou_results = analyzer.evaluate_iou(
+                        final_config.annotation_dir,
+                        artifact_masks_dir=final_config.artifact_masks_dir
+                    )
                     print(f"\n✓ IoU evaluation complete")
                 else:
                     print(f"\n⚠ Warning: Annotation directory not found at {final_config.annotation_dir}")

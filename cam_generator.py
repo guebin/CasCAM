@@ -209,7 +209,7 @@ class OtherCAMGenerator:
     """Class for generating other CAM methods (GradCAM, HiResCAM, etc.)"""
     
     @staticmethod
-    def get_img_and_allcams(dls, idx, model, methods, dataset='combined', timing_dict=None):
+    def get_img_and_allcams(dls, idx, model, methods, dataset='combined', timing_dict=None, per_image_timing=None):
         """Get image and all CAM variants (original + comparison methods)"""
         if dataset == 'combined':
             # Get from combined dataset (train + valid)
@@ -243,6 +243,8 @@ class OtherCAMGenerator:
                     if method_name not in timing_dict:
                         timing_dict[method_name] = []
                     timing_dict[method_name].append(elapsed_time)
+                if per_image_timing is not None:
+                    per_image_timing[method_name] = elapsed_time
 
                 # Debug: Check CAM values
                 cam_tensor = torch.tensor(other_cam)
