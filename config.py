@@ -24,10 +24,6 @@ class CasCAMConfig:
                  max_comparison_images=None,
                  threshold_method=None,
                  threshold_params=None,
-                 annotation_dir="./data/oxford-pets-cascam/annotations",
-                 artifact_masks_dir=None,
-                 eval_use_topk=True,
-                 eval_k_percent=0.1,
                  max_epochs=10,
                  patience=5):
         self.theta = theta
@@ -38,10 +34,6 @@ class CasCAMConfig:
         self.max_comparison_images = max_comparison_images
         self.threshold_method = threshold_method
         self.threshold_params = threshold_params or {}
-        self.annotation_dir = annotation_dir
-        self.artifact_masks_dir = artifact_masks_dir
-        self.eval_use_topk = eval_use_topk
-        self.eval_k_percent = eval_k_percent
         self.max_epochs = max_epochs
         self.patience = patience
 
@@ -67,15 +59,15 @@ class CasCAMConfig:
         if iteration == 0:
             return self.data_path
         else:
-            return f'{self.experiment_dir}/artifacts/removed{iteration}'
-    
+            return f'{self.experiment_dir}/training/removed{iteration}'
+
     def get_save_dir(self, iteration):
         """Get save directory for processed images"""
-        return f"{self.experiment_dir}/artifacts/removed{iteration+1}"
+        return f"{self.experiment_dir}/training/removed{iteration+1}"
     
     def get_fig_dir(self, lambda_val):
         """Get figure save directory for specific lambda value"""
-        return f"{self.experiment_dir}/artifacts/comparisons/lambda_{lambda_val}"
+        return f"{self.experiment_dir}/comparison_figures/lambda_{lambda_val}"
 
     def get_cams_dir(self, lambda_val):
         """Get CAMs directory for specific lambda value"""
@@ -91,21 +83,13 @@ class CasCAMConfig:
 
     def get_checkpoint_dir(self, iteration):
         """Get checkpoint directory for specific iteration"""
-        return f"{self.experiment_dir}/training/iter_{iteration+1}"
-
-    def get_evaluation_dir(self, lambda_val):
-        """Get evaluation directory for specific lambda value"""
-        return f"{self.experiment_dir}/evaluation/lambda_{lambda_val}"
+        return f"{self.experiment_dir}/training/checkpoints/iter_{iteration+1}"
 
     def save_config(self):
         """Save configuration as YAML file"""
         config_dict = {
-            'annotation_dir': self.annotation_dir,
-            'artifact_masks_dir': self.artifact_masks_dir,
             'data_path': self.data_path,
             'dataset_name': self.dataset_name,
-            'eval_k_percent': self.eval_k_percent,
-            'eval_use_topk': self.eval_use_topk,
             'lambda_vals': self.lambda_vals,
             'max_comparison_images': self.max_comparison_images,
             'max_epochs': self.max_epochs,

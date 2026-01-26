@@ -28,14 +28,15 @@ dependencies = [
     "torch>=2.0.0",
     "torchvision>=0.15.0",
     "fastai>=2.7.0",
-    
+
     # CAM implementations
     "grad-cam>=1.4.0",
-    
+
     # Scientific computing & visualization
     "numpy>=1.21.0",
     "matplotlib>=3.5.0",
-    
+    "scipy>=1.10.0",
+
     # Configuration & utilities
     "pyyaml>=6.0.0",
     "pillow>=8.0.0",
@@ -53,8 +54,8 @@ dev = [
 ]
 
 gpu = [
-    "torch[cuda]>=2.0.0",
-    "torchvision[cuda]>=0.15.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
 ]
 
 jupyter = [
@@ -86,8 +87,8 @@ exclude = [
     "uv.lock"
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=22.0.0",

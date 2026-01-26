@@ -13,7 +13,6 @@ from trainer import ModelTrainer
 from cam_generator import CAMGenerator, CasCAM, OtherCAMGenerator
 from image_processor import ImageProcessor
 from visualizer import CasCAMVisualizer
-from evaluator import IoUEvaluator, AdvancedCAMEvaluator, create_comparison_table, compare_with_baseline
 
 
 class CasCAMAnalyzer:
@@ -23,7 +22,7 @@ class CasCAMAnalyzer:
         self.config = config
         self.dls_list = []
         self.lrnr_list = []
-        # Storage for CAMs and image names for IoU evaluation
+        # Storage for CAMs and image names
         self.saved_cams = {}
         self.image_names = []
         # Storage for computation times
@@ -34,7 +33,6 @@ class CasCAMAnalyzer:
             'threshold_times': [],          # (2) Threshold processing time between iterations
             'image_save_times': [],         # (3) Time to save thresholded images
             'dataloader_construction_times': [],  # (4) Dataloader construction time
-            'preprocessing_times': [],      # Legacy: kept for compatibility
             'cam_generation_times': {},     # (5) CAM generation time per method
             'per_image_cam_times': []       # Per-image timing data
         }
@@ -116,67 +114,6 @@ class CasCAMAnalyzer:
         print(f"    Model: {model_path}")
         print(f"    DataLoader config: {config_path}")
 
-    def load_iteration_checkpoint(self, iteration):
-        """Load trained model and recreate dataloader for a specific iteration"""
-        checkpoint_dir = self.config.get_checkpoint_dir(iteration)
-
-        # Load FastAI learner
-        model_path = f"{checkpoint_dir}/model.pkl"
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Checkpoint not found: {model_path}")
-
-        from fastai.learner import load_learner
-        lrnr = load_learner(model_path)
-
-        # Load dataloader configuration
-        config_path = f"{checkpoint_dir}/dls_config.json"
-        import json
-        with open(config_path, 'r') as f:
-            dls_config = json.load(f)
-
-        # Recreate dataloader
-        dls = ModelTrainer.create_dataloader(dls_config['data_path'], self.config.random_seed)
-
-        print(f"Loaded checkpoint for iteration {iteration+1}:")
-        print(f"  Model: {model_path}")
-        print(f"  DataLoader: {dls_config['num_train']} train + {dls_config['num_valid']} valid images")
-
-        return lrnr, dls
-
-    def _process_single_image(self, idx, dls, model, theta, save_dir, timing_dict=None):
-        """Process single image"""
-        # Step 1: Generate original CAM
-        img, original_cam = CAMGenerator.get_img_and_originalcam(dls, idx, model, dataset='combined')
-
-        # Step 2: Create CasCAM with thresholding
-        # (2) Threshold time
-        threshold_start = time.time()
-        cascam_obj = CasCAM(original_cam, self.config.threshold_method, self.config.threshold_params)
-        cascam = cascam_obj.processed_cam if cascam_obj.processed_cam is not None else cascam_obj.source_cam
-        threshold_time = time.time() - threshold_start
-
-        if timing_dict is not None:
-            timing_dict['threshold_times'].append(threshold_time)
-
-        # Step 3: Apply weighting using original ImageProcessor method (excluding save time)
-        preprocess_start = time.time()
-        res_img = ImageProcessor.apply_cam_weighting(img, cascam, theta)
-        preprocess_time = time.time() - preprocess_start
-
-        if timing_dict is not None:
-            if 'image_processing_times' not in timing_dict:
-                timing_dict['image_processing_times'] = []
-            timing_dict['image_processing_times'].append(preprocess_time)
-
-        # Get filename from combined dataset
-        all_items = list(dls.train_ds.items) + list(dls.valid_ds.items)
-        fname = str(all_items[idx]).split("/")[-1]
-        save_path = f"{save_dir}/{fname}"
-        # Image saving (excluded from timing)
-        ImageProcessor.save_processed_image(res_img, save_path)
-
-        return fname
-    
     def _process_images_for_next_iteration(self, dls, lrnr, iteration):
         """Process images using CAM weighting for next iteration"""
         save_dir = self.config.get_save_dir(iteration)
@@ -352,261 +289,6 @@ class CasCAMAnalyzer:
         print(f"Processed all {total_images} images for λ={lambda_val}")
         print(f"Saved {max_figures} comparison figures")
         print(f"Saved CAMs for {len(method_names)} methods")
-    
-    def evaluate_iou(self, annotation_dir, artifact_masks_dir=None):
-        """
-        Evaluate IoU for all methods and create comparison tables
-
-        Args:
-            annotation_dir: Path to annotation directory containing trimaps
-            artifact_masks_dir: Path to artifact masks directory (optional)
-
-        Returns:
-            Dictionary of IoU results for each lambda value
-        """
-        print("\n" + "="*60)
-        print("IoU Evaluation")
-        if self.config.eval_use_topk:
-            print(f"Evaluation Method: Top-{int(self.config.eval_k_percent*100)}%")
-        else:
-            print(f"Evaluation Method: Fixed Threshold (0.5)")
-        print("="*60)
-
-        # Initialize evaluator
-        evaluator = IoUEvaluator(annotation_dir, artifact_masks_dir)
-
-        # Store all results
-        iou_results = {}
-
-        for lambda_val in self.config.lambda_vals:
-            print(f"\nEvaluating λ={lambda_val}")
-
-            # Get CAMs for this lambda value
-            cams_dict = self.saved_cams.get(lambda_val, {})
-
-            # Debug: print CAM storage status
-            print(f"  DEBUG: saved_cams keys: {list(self.saved_cams.keys())}")
-            print(f"  DEBUG: cams_dict keys for λ={lambda_val}: {list(cams_dict.keys())}")
-            if cams_dict:
-                for method_name, cams_list in cams_dict.items():
-                    print(f"  DEBUG: Method '{method_name}' has {len(cams_list)} CAMs")
-
-            if not cams_dict:
-                print(f"  Warning: No CAMs found for λ={lambda_val}")
-                continue
-
-            # === EVALUATION 1: Object Localization (vs GT annotation) ===
-            print(f"\n  [1/2] Object Localization Evaluation (vs GT annotation)")
-            object_results_df = evaluator.evaluate_object_localization(
-                cams_dict,
-                self.image_names,
-                threshold=0.5,
-                use_topk=self.config.eval_use_topk,
-                k_percent=self.config.eval_k_percent
-            )
-
-            # Create summary table
-            object_summary_df = evaluator.create_summary_table(object_results_df)
-
-            # Create comparison table
-            object_comparison_df = create_comparison_table(object_results_df, baseline_method='CAM')
-
-            # Save results
-            save_dir = self.config.get_evaluation_dir(lambda_val)
-            os.makedirs(save_dir, exist_ok=True)
-
-            object_results_df.to_csv(f"{save_dir}/object_localization_detailed.csv", index=False)
-            object_summary_df.to_csv(f"{save_dir}/object_localization_summary.csv", index=False)
-            object_comparison_df.to_csv(f"{save_dir}/object_localization_comparison.csv", index=False)
-
-            # Print summary
-            print(f"\n  Object Localization Summary (λ={lambda_val}):")
-            print(object_summary_df.to_string(index=False))
-
-            print(f"\n  Object Localization Comparison vs CAM (λ={lambda_val}):")
-            print(object_comparison_df.to_string(index=False))
-
-            # === EVALUATION 2: Artifact Detection (vs artifact boxes) ===
-            print(f"\n  [2/2] Artifact Detection Evaluation (vs artifact boxes)")
-            artifact_results_df = evaluator.evaluate_artifact_detection(
-                cams_dict,
-                self.image_names,
-                threshold=0.5,
-                use_topk=self.config.eval_use_topk,
-                k_percent=self.config.eval_k_percent
-            )
-
-            if not artifact_results_df.empty:
-                # Create summary table
-                artifact_summary_df = evaluator.create_summary_table(artifact_results_df)
-
-                # Create comparison table
-                artifact_comparison_df = create_comparison_table(artifact_results_df, baseline_method='CAM')
-
-                # Save results
-                artifact_results_df.to_csv(f"{save_dir}/artifact_detection_detailed.csv", index=False)
-                artifact_summary_df.to_csv(f"{save_dir}/artifact_detection_summary.csv", index=False)
-                artifact_comparison_df.to_csv(f"{save_dir}/artifact_detection_comparison.csv", index=False)
-
-                # Print summary
-                print(f"\n  Artifact Detection Summary (λ={lambda_val}):")
-                print(artifact_summary_df.to_string(index=False))
-
-                print(f"\n  Artifact Detection Comparison vs CAM (λ={lambda_val}):")
-                print(artifact_comparison_df.to_string(index=False))
-            else:
-                print(f"\n  No artifact masks found - skipping artifact detection evaluation")
-
-            # === EVALUATION 3: Cross Analysis (Object vs Artifact) ===
-            print(f"\n  [3/3] Cross-Analysis Evaluation (Object vs Artifact relationship)")
-            cross_results_df = evaluator.evaluate_cross_analysis(
-                cams_dict,
-                self.image_names,
-                threshold=0.5,
-                use_topk=self.config.eval_use_topk,
-                k_percent=self.config.eval_k_percent
-            )
-
-            if not cross_results_df.empty:
-                # Create summary table
-                cross_summary_df = evaluator.create_summary_table(cross_results_df)
-
-                # Create comparison table
-                cross_comparison_df = create_comparison_table(cross_results_df, baseline_method='CAM')
-
-                # Save results in cross_analysis subdirectory
-                cross_save_dir = f"{save_dir}/cross_analysis"
-                os.makedirs(cross_save_dir, exist_ok=True)
-
-                cross_results_df.to_csv(f"{cross_save_dir}/per_image.csv", index=False)
-                cross_summary_df.to_csv(f"{cross_save_dir}/summary.csv", index=False)
-                cross_comparison_df.to_csv(f"{cross_save_dir}/vs_CAM.csv", index=False)
-
-                # Print summary (key metrics only)
-                print(f"\n  Cross-Analysis Summary (λ={lambda_val}):")
-                key_cols = ['Method', 'clean_object_precision_mean', 'artifact_contamination_mean',
-                           'distraction_score_mean', 'dependency_ratio_mean']
-                display_cols = [col for col in key_cols if col in cross_summary_df.columns]
-                if display_cols:
-                    print(cross_summary_df[display_cols].to_string(index=False))
-                else:
-                    print(cross_summary_df.to_string(index=False))
-
-                print(f"\n  Cross-Analysis Comparison vs CAM (λ={lambda_val}):")
-                print(cross_comparison_df.to_string(index=False))
-            else:
-                print(f"\n  No artifact masks found - skipping cross-analysis evaluation")
-                cross_results_df = pd.DataFrame()
-                cross_summary_df = None
-                cross_comparison_df = None
-
-            # Store results
-            iou_results[lambda_val] = {
-                'object_localization': {
-                    'detailed': object_results_df,
-                    'summary': object_summary_df,
-                    'comparison': object_comparison_df
-                },
-                'artifact_detection': {
-                    'detailed': artifact_results_df,
-                    'summary': artifact_summary_df if not artifact_results_df.empty else None,
-                    'comparison': artifact_comparison_df if not artifact_results_df.empty else None
-                },
-                'cross_analysis': {
-                    'detailed': cross_results_df,
-                    'summary': cross_summary_df,
-                    'comparison': cross_comparison_df
-                }
-            }
-
-        return iou_results
-
-    def evaluate_advanced_metrics(self, annotation_dir, artifact_masks_dir=None):
-        """
-        Evaluate comprehensive advanced metrics for all methods
-
-        Args:
-            annotation_dir: Path to annotation directory containing trimaps
-            artifact_masks_dir: Optional path to artifact masks directory
-
-        Returns:
-            Dictionary of advanced evaluation results for each lambda value
-        """
-        print("\n" + "="*60)
-        print("Advanced Metrics Evaluation")
-        if self.config.eval_use_topk:
-            print(f"Evaluation Method: Top-{int(self.config.eval_k_percent*100)}%")
-        else:
-            print(f"Evaluation Method: Fixed Threshold (0.5)")
-        print("="*60)
-
-        # Initialize advanced evaluator
-        evaluator = AdvancedCAMEvaluator(
-            annotation_dir=annotation_dir,
-            artifact_masks_dir=artifact_masks_dir
-        )
-
-        # Store all results
-        advanced_results = {}
-
-        for lambda_val in self.config.lambda_vals:
-            print(f"\nEvaluating λ={lambda_val} with comprehensive metrics")
-
-            # Get CAMs for this lambda value
-            cams_dict = self.saved_cams.get(lambda_val, {})
-
-            if not cams_dict:
-                print(f"  Warning: No CAMs found for λ={lambda_val}")
-                continue
-
-            # Run comprehensive evaluation
-            results_df = evaluator.evaluate_multiple_methods(
-                cams_dict,
-                self.image_names,
-                threshold=0.5,
-                use_topk=self.config.eval_use_topk,
-                k_percent=self.config.eval_k_percent,
-                include_curves=True,
-                include_sweep=False  # Set to True for threshold sweep analysis
-            )
-
-            # Create summary report
-            summary_df = evaluator.create_summary_report(
-                results_df,
-                save_dir=self.config.get_evaluation_dir(lambda_val)
-            )
-
-            # Create baseline comparison
-            comparison_df = compare_with_baseline(results_df, baseline_method='CAM')
-
-            # Save results
-            save_dir = self.config.get_evaluation_dir(lambda_val)
-            os.makedirs(save_dir, exist_ok=True)
-
-            # Print key results
-            print(f"\n  Summary Statistics (λ={lambda_val}):")
-            # Show only key metrics
-            key_metrics = [col for col in summary_df.columns
-                          if any(metric in col for metric in ['Method', 'iou_mean', 'dice_mean', 'ap_mean',
-                                                              'top15_precision_mean', 'pointing_game_hit_mean',
-                                                              'centroid_distance_mean', 'boundary_f1_mean'])]
-            if key_metrics:
-                print(summary_df[key_metrics].to_string(index=False))
-            else:
-                print(summary_df.to_string(index=False))
-
-            if not comparison_df.empty:
-                print(f"\n  Improvements vs CAM (λ={lambda_val}):")
-                print(comparison_df.to_string(index=False))
-
-            # Store results
-            advanced_results[lambda_val] = {
-                'detailed': results_df,
-                'summary': summary_df,
-                'comparison': comparison_df
-            }
-
-        return advanced_results
 
     def save_cams(self):
         """Save CAM numpy arrays to files for each lambda value and method"""
@@ -737,7 +419,7 @@ class CasCAMAnalyzer:
         # Generate comparisons for all lambda values
         all_results = {}
         for lambda_val in self.config.lambda_vals:
-            print(f"\\nGenerating comparisons for λ={lambda_val}")
+            print(f"\nGenerating comparisons for λ={lambda_val}")
             self.generate_comparison_figures(lambda_val)
 
             weights = self.config.calculate_cascam_weights(lambda_val)

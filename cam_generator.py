@@ -5,8 +5,6 @@ CAM generation module for CasCAM
 import torch
 import numpy as np
 from fastai.vision.all import *
-from scipy import ndimage
-from scipy.interpolate import RectBivariateSpline
 
 
 class CAMGenerator:
@@ -246,25 +244,7 @@ class OtherCAMGenerator:
                 if per_image_timing is not None:
                     per_image_timing[method_name] = elapsed_time
 
-                # Debug: Check CAM values
-                cam_tensor = torch.tensor(other_cam)
-                print(f"\n=== {method_name} ===")
-                print(f"Shape: {cam_tensor.shape}")
-                print(f"Min: {cam_tensor.min().item():.6f}")
-                print(f"Max: {cam_tensor.max().item():.6f}")
-                print(f"Mean: {cam_tensor.mean().item():.6f}")
-                print(f"Std: {cam_tensor.std().item():.6f}")
-                print(f"Non-zero count: {(cam_tensor != 0).sum().item()}/{cam_tensor.numel()}")
-
-                # Check for problematic values
-                if cam_tensor.max().item() - cam_tensor.min().item() < 1e-8:
-                    print(f"WARNING: {method_name} has extremely low dynamic range!")
-                if torch.isnan(cam_tensor).any():
-                    print(f"WARNING: {method_name} contains NaN values!")
-                if (cam_tensor == 0).all():
-                    print(f"WARNING: {method_name} is all zeros!")
-
-                allcams.append(cam_tensor)
+                allcams.append(torch.tensor(other_cam))
             except Exception as e:
                 print(f"Warning: Failed to generate {method}: {e}")
                 continue
